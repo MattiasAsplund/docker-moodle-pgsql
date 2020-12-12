@@ -1,0 +1,89 @@
+version: "3.7"
+volumes:
+  data:
+  moodledata:
+networks:
+  overlay:
+services:
+  app:
+    image: tianon/true
+    volumes:
+      - ./${REPO_FOLDER}:${DOCUMENT_ROOT}:z
+      - moodledata:${MOODLE_DATA}:z
+      # Uncomment following lines and modify path for CUSTOM_CA
+      # - /usr/local/share/ca-certificates/overcloud-cacert-mo.crt:/usr/local/share/ca-certificates/custom-ca.crt
+    networks:
+      - overlay
+  db:
+    environment:
+      POSTGRES_PASSWORD: Pa$$w0rd
+    image: postgres
+    volumes:
+      - data:/var/lib/postgresql/data
+      - ./db_dumps:/opt/db_dumps:z
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB}"
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+    depends_on:
+      - app
+    networks:
+      - overlay
+  # php-fpm:
+  #   image: "php:7.4-fpm-alpine"
+  #   build:
+  #     context: .
+  #     dockerfile: php-fpm/Dockerfile
+  #     args:
+  #       - DOCUMENT_ROOT
+  #       - MY_TZ
+  #     network: host
+  #   environment:
+  #     - XDEBUG_CONFIG=idekey=PHPTEST
+  #     - PHP_IDE_CONFIG=serverName=localhost
+  #     - DOCUMENT_ROOT
+  #     - POSTGRES_DB
+  #     - POSTGRES_USER
+  #     - POSTGRES_PASSWORD
+  #     - MOODLE_DATA
+  #     - WWWROOT
+  #     - WWW_PORT
+  #     # Uncomment following lines and modify variable content for CUSTOM_CA
+  #     # - |-
+  #     #   CA_CERT=-----BEGIN CERTIFICATE-----
+  #     #   REPLACE_CA_CONTENT
+  #     #   -----END CERTIFICATE-----
+  #   volumes:
+  #     - moodledata:${MOODLE_DATA}:z
+  #     - ./log:/var/log/shared:z
+  #   expose:
+  #     - "${PHP_SOCKET}"
+  #   links:
+  #     - db
+  #   depends_on:
+  #     - db
+  #   networks:
+  #     - overlay
+  apache2:
+    image: metics/apache2:2.4
+    build:
+      context: .
+      dockerfile: apache2/Dockerfile
+      args:
+        # DOCUMENT_ROOT: ${DOCUMENT_ROOT}
+        PHP_SOCKET: php-fpm:${PHP_SOCKET}
+        ALIAS_DOMAIN: ${ALIAS_DOMAIN}
+      network: host
+    volumes:
+      - ${REPO_FOLDER}:${DOCUMENT_ROOT}:z
+      - ./moodledata:${MOODLE_DATA}:z
+    ports:
+      - "${IP}:${WWW_PORT}:80"
+    links:
+      # - php-fpm
+      - db
+    depends_on:
+      - db
+      # - php-fpm
+    networks:
+      - overlay
